@@ -1,0 +1,19 @@
+//PERMANENT LOCATION
+message = 'Should add mapped location ID to permanentLocationID '
+  let data = item_composite_call_number.json
+    expect permanentLocationID = 'f64f52c8-2d2d-464c-96b9-2b07d0c55a38'
+
+//SIMPLE CALL NUMBER
+message = 'Should add simple call number (c $a) to callNumber'
+  let data = item_simple_call_number.json
+    expect callNumber = 'td History ...'
+
+//COMPOSITE CALL NUMBER (CALLNUMBER)
+message = 'Should add call number suffix (c $a ) to callNumber'
+  let data = item_composite_call_number.json
+    expect callNumber = 'tk'
+
+//COMPOSITE CALL NUMBER (SUFFIX)
+message = 'Should add call number suffix (c $l ) to callNumberSuffix'
+  let data = item_composite_call_number.json
+    expect callNumberSuffix = 'Hemmungs Wirtén'
