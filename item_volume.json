@@ -1,0 +1,170 @@
+{
+    "id": "1393372",
+    "updatedDate": "2019-01-24T14:33:17Z",
+    "createdDate": "2019-01-24T14:33:17Z",
+    "deleted": false,
+    "bibIds": [
+        "1131842"
+    ],
+    "location": {
+        "code": "hbibo",
+        "name": "Main Library Johanneberg (Open shelf Floor 1)"
+    },
+    "status": {
+        "code": "-",
+        "display": "AVAILABLE"
+    },
+    "barcode": "1204226420",
+    "callNumber": "Ref k Sveriges rikes lag",
+    "fixedFields": {
+        "57": {
+            "label": "",
+            "value": "false"
+        },
+        "58": {
+            "label": "",
+            "value": "0"
+        },
+        "59": {
+            "label": "",
+            "value": "0"
+        },
+        "60": {
+            "label": "",
+            "value": "f"
+        },
+        "61": {
+            "label": "",
+            "value": "100",
+            "display": "Loan 90/14 days"
+        },
+        "62": {
+            "label": "",
+            "value": "0.000000"
+        },
+        "64": {
+            "label": "",
+            "value": "0"
+        },
+        "70": {
+            "label": "",
+            "value": "0"
+        },
+        "74": {
+            "label": "",
+            "value": "0"
+        },
+        "76": {
+            "label": "",
+            "value": "0"
+        },
+        "77": {
+            "label": "",
+            "value": "0"
+        },
+        "79": {
+            "label": "",
+            "value": "hbibo",
+            "display": "Main Library Johanneberg (Open shelf Floor 1)"
+        },
+        "80": {
+            "label": "",
+            "value": "i"
+        },
+        "81": {
+            "label": "",
+            "value": "1393372"
+        },
+        "83": {
+            "label": "",
+            "value": "2019-01-24T14:33:17Z"
+        },
+        "84": {
+            "label": "",
+            "value": "2019-01-24T14:33:17Z"
+        },
+        "85": {
+            "label": "",
+            "value": "1"
+        },
+        "86": {
+            "label": "",
+            "value": "1"
+        },
+        "88": {
+            "label": "",
+            "value": "-",
+            "display": "AVAILABLE"
+        },
+        "93": {
+            "label": "",
+            "value": "0"
+        },
+        "94": {
+            "label": "",
+            "value": "0"
+        },
+        "97": {
+            "label": "",
+            "value": " "
+        },
+        "98": {
+            "label": "",
+            "value": "2019-01-24T14:33:17Z"
+        },
+        "108": {
+            "label": "",
+            "value": "-"
+        },
+        "109": {
+            "label": "UTLÅN 2019",
+            "value": "0"
+        },
+        "110": {
+            "label": "UTLÅN 2018",
+            "value": "0"
+        },
+        "127": {
+            "label": "",
+            "value": "8224"
+        },
+        "161": {
+            "label": "",
+            "value": "0"
+        },
+        "162": {
+            "label": "IR DIST LEARN SAME SITE",
+            "value": "0"
+        },
+        "264": {
+            "label": "Holdings Item Tag",
+            "value": "6"
+        },
+        "265": {
+            "label": "Inherit Location",
+            "value": "false"
+        }
+    },
+    "varFields": [
+        {
+            "fieldTag": "b",
+            "content": "1204226420"
+        },
+        {
+            "fieldTag": "c",
+            "marcTag": "971",
+            "ind1": " ",
+            "ind2": " ",
+            "subfields": [
+                {
+                    "tag": "a",
+                    "content": "Ref k Sveriges rikes lag"
+                }
+            ]
+        },
+        {
+            "fieldTag": "v",
+            "content": "2019"
+        }
+    ]
+}
