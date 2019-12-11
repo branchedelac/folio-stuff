@@ -1,9 +1,0 @@
-//BARCODE
-message = 'Should add volume (varfield v) to volume'
-  let data = item_volume.json
-    expect volume = '2019'
-
-//VOLUME
-message = 'Should add barcode to barcode'
-  let data = item_volume.json
-    expect barcode = '1204226420'
