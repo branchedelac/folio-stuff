@@ -13,20 +13,21 @@ print('Let\'s start!')
 with open('test_holdings.json', 'r') as a:
 	hld_wo_suffix = json.load(a)
 
-with open('test_hldid_suffix_map.csv', 'r') as b:
-	hldid_suffix_map = csv.DictReader(b, delimiter=',')
-
 	for record in hld_wo_suffix:
 		print('Before:', record)
 		print()
-		for row in hldid_suffix_map:
-			if record['id'] in row['hld_id']:
+		with open('test_hldid_suffix_map.csv', 'r') as b:
+			hldid_suffix_map = csv.DictReader(b)
+			for row in hldid_suffix_map:
+				if record['id'] in row['hld_id']:
 				#print('ID: ' + record['id'] + '\tSuffix: ' + row['suffix'])
-				record['callNumberSuffix'] = row['suffix']
+					record['callNumberSuffix'] = row['suffix']
 
-				print('After:', record)
+		print('After:', record)
 		if record['callNumberSuffix'] in '':
-			print('Couldn\'t find ID in map!', )
+			print('Couldn\'t find ID in map!')
 		print()
 		print('...')
 		print()
+
+
