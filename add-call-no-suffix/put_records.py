@@ -16,7 +16,7 @@ params = {
 
 baseurl = baseurl
 
-#Assign arguments to variables
+#Assign argument (should be a json file of FOLIO holdings records) to variable
 records_in = sys.argv[1]
 
 #Initiate counters to keep track of progress
@@ -26,7 +26,7 @@ start = time.time()
 with open(records_in, 'r') as a:	
 	recs_to_put = json.load(a)
 
-for rec in recs_to_put[1:3]:
+for rec in recs_to_put:
 	hldid = rec['id']
 	request_url = f'{baseurl}/holdings-storage/holdings/{hldid}'
 	body = json.dumps(rec, ensure_ascii=False)
