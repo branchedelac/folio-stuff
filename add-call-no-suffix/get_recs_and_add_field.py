@@ -14,6 +14,8 @@ params = {
 	'format': 'json'
 }
 
+baseurl = baseurl
+
 #Assign arguments to variables
 map_in = sys.argv[1]
 records_out = sys.argv[2]
@@ -35,7 +37,7 @@ with open(map_in, 'r') as a:
 	for row in sierra_items:
 		if row['barcode'] not in '':
 			barcode = row['barcode']
-			request_url = f'https://okapi-fse-eu-central-1.folio.ebsco.com/inventory/items?query=barcode=={barcode}'
+			request_url = f'{baseurl}/inventory/items?query=barcode=={barcode}'
 			#Make a GET request to the item API
 			request = requests.get(request_url, headers=headers, params=params)
 

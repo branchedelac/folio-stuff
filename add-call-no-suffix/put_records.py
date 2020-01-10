@@ -14,6 +14,8 @@ params = {
 	'format': 'json'
 }
 
+baseurl = baseurl
+
 #Assign arguments to variables
 records_in = sys.argv[1]
 
@@ -26,7 +28,7 @@ with open(records_in, 'r') as a:
 
 for rec in recs_to_put[1:3]:
 	hldid = rec['id']
-	request_url = f'https://okapi-fse-eu-central-1.folio.ebsco.com/holdings-storage/holdings/{hldid}'
+	request_url = f'{baseurl}/holdings-storage/holdings/{hldid}'
 	body = json.dumps(rec, ensure_ascii=False)
 	request = requests.put(request_url, data=body, headers=headers, params=params)
 	
