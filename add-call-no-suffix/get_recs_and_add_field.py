@@ -14,11 +14,12 @@ params = {
 	'format': 'json'
 }
 
-baseurl = baseurl
+baseurl = 'baseurl'
 
 #Assign arguments to variables
 map_in = sys.argv[1]
-records_out = sys.argv[2]
+old_hlds_backup = sys.argv[2]
+updated_records_out = sys.argv[3]
 
 #Initiate dcitionary where we will store the barcode ID (extracted from the csv file) as key and the holdings ID (extracted from the item record) as value
 barcode_hld_map = {}
@@ -107,7 +108,9 @@ for hld in hld_suff_map:
 	#Give FOLIO some rest before sending the next request
 	time.sleep(0.01)
 
-#print('\nHere are the holdings we want to update:\n', hld_recs)
+#Print a backup file with all the extracted holdings
+old_holdings = json.dumps(hld_recs, ensure_ascii=False)
+print(old_holdings, file=open(old_hlds_backup, "a"))
 
 #Wow! Now it's time to add the call number suffixes in the map to the right holding record.
 print('\nLet\'s srtart adding call number suffixes to holdings records!\n')
@@ -132,4 +135,4 @@ for hld in hld_suff_map:
 updated_holdings = json.dumps(hld_recs, ensure_ascii=False)
 
 #Print the records to a file
-print(updated_holdings, file=open(records_out, "a"))
+print(updated_holdings, file=open(updated_records_out, "a"))
