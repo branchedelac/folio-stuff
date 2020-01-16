@@ -8,7 +8,7 @@ import json
 headers = {
 	'x-okapi-tenant': 'tenant',
 	'x-okapi-token': 'token',
-	'Content-Type': 'application/json'
+	'Content-Type': 'application/json; charset=utf-8'
 }
 params = {
 	'format': 'json'
@@ -34,7 +34,7 @@ for rec in recs_to_put:
 	body = json.dumps(rec, ensure_ascii=False)
 
 	#Make a PUT request to the holdings storage API, with the record in the request body
-	request = requests.put(request_url, data=body, headers=headers, params=params)
+	request = requests.put(request_url, data=body.encode('utf-8'), headers=headers, params=params)
 	
 	#Check that the status code is 204 (success) - if it isn't, print info about this!
 	status = request.status_code
