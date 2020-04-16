@@ -6,15 +6,15 @@ import json
 #API Request details 
 #TODO: figure out how to not have authentication details in code
 headers = {
-	'x-okapi-tenant': 'tenant',
-	'x-okapi-token': 'token',
+	'x-okapi-tenant': '',
+	'x-okapi-token': '',
 	'Content-Type': 'application/json; charset=utf-8'
 }
 params = {
 	'format': 'json'
 }
 
-baseurl = 'baseurl'
+baseurl = 'https://okapi-fse-eu-central-1.folio.ebsco.com'
 
 #Assign argument (should be a json file of FOLIO holdings records) to variable
 records_in = sys.argv[1]
