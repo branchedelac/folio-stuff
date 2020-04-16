@@ -21,9 +21,10 @@ offset = 0
 # Initiate a list that we will put the returned json data in
 result = []
 
-# 
+# Set a variable someleft to True
 someleft = True
 
+# Keep looping through the code below as long as someleft == True 
 while someleft:
 	print("Working on it!")
 	# Build a request URL and send the GET request to the item storage API
@@ -43,9 +44,10 @@ while someleft:
 			# Give FOLIO some rest before making the next request
 			time.sleep(0.01)
 		else:
+			# When response['items'] is empty, we've retreived all existing records. Set someleft to False, to get out of the loop.
 			someleft = False
 
-# Ok. We have our files! Now transform the list into json
+# Ok. We have our records! Now transform the list into json
 resultjson = json.dumps(result, ensure_ascii=False)
 
 # Print the result to a file
