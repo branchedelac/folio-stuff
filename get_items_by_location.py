@@ -14,7 +14,7 @@ params = {
 }
 
 baseurl = auth.okapiUrl
-query = '/item-storage/items?query=(effectiveLocationId=="5fb1c433-7b29-4226-8054-f8d491cf8426")&limit=20&offset='
+query = '/item-storage/items?query=(effectiveLocationId=="5fb1c433-7b29-4226-8054-f8d491cf8426")&limit=10&offset='
 # We'll set offset to 0 from the start, then increment after each iteration
 offset = 0
 
@@ -38,9 +38,9 @@ while someleft:
 		response = request.json()
 		# Check that we are still getting any records back...
 		if len(response['items']) != 0:
-			result.append(response)
+			result.extend(response['items'])
 			# Increment the offset by the limit value
-			offset += 20
+			offset += 10
 			# Give FOLIO some rest before making the next request
 			time.sleep(0.01)
 		else:
