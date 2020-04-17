@@ -14,7 +14,7 @@ params = {
 }
 
 baseurl = auth.okapiUrl
-query = '/item-storage/items?query=(effectiveLocationId=="5fb1c433-7b29-4226-8054-f8d491cf8426")&limit=10&offset='
+query = '/item-storage/items?query=(effectiveLocationId=="5fb1c433-7b29-4226-8054-f8d491cf8426")&limit=1000&offset='
 # We'll set offset to 0 from the start, then increment after each iteration
 offset = 0
 
@@ -40,7 +40,7 @@ while someleft:
 		if len(response['items']) != 0:
 			result.extend(response['items'])
 			# Increment the offset by the limit value
-			offset += 10
+			offset += 1000
 			# Give FOLIO some rest before making the next request
 			time.sleep(0.01)
 		else:
@@ -51,4 +51,4 @@ while someleft:
 resultjson = json.dumps(result, ensure_ascii=False)
 
 # Print the result to a file
-print(resultjson, file=open("items-test.json", "a"))
+print(resultjson, file=open("items-patricia.json", "a"))
