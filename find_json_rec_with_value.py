@@ -2,11 +2,17 @@ import sys
 import json
 import argparse
 from gooey import Gooey
+from gooey import GooeyParser
 
-@Gooey
+@Gooey(program_name='Find json records containing a specified value',
+header_bg_color='#FFFFFF',
+body_bg_color='#FFFFFF',
+footer_bg_color='#FFFFFF',
+image_dir='./local_data/',
+)
 def user_input():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("file", help="A file to search through", type=str)
+    parser = GooeyParser(description="Specify the file you want to search and the value you're lookign for.")
+    parser.add_argument("file", help="A file to search through", widget='FileChooser')
     parser.add_argument("value", help="The value we're looking for", type=str)
     args = parser.parse_args()
 
@@ -30,9 +36,9 @@ def find_value(user_input):
                 matches.append(body)
                 print(f"Found a record containing the value {value}. Check it out below: \n\n {body}")
         if len(matches) == 0: 
-            print(f"\nThe value {value} is not present in the file {file}.")
+            print(f"\nThe value {value} is not present in the file {file}.\n")
     
-    print(f"\n---\nAll in all, we found {len(matches)} occurences of {value} in {file}.")
+    print(f"---\nAll in all, we found {len(matches)} occurences of {value} in {file}.")
                 
 #Run function
 find_value(user_input)
