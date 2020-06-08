@@ -7,7 +7,7 @@ from gooey import Gooey, GooeyParser
 import authqx
 
 
-@Gooey(program_name='Find json records containing a specified value',
+@Gooey(program_name='Move FOLIO holdings between instances',
 header_bg_color='#FFFFFF',
 body_bg_color='#FFFFFF',
 footer_bg_color='#FFFFFF',
@@ -15,9 +15,9 @@ image_dir='./local_data/',
 )
 
 def user_input():
-	parser = GooeyParser(description="Specify the file you want to search and the value you're lookign for.")
+	parser = GooeyParser(description="Please fill in all the fields below.")
 	parser.add_argument("list_of_records", 
-						help="A two column csv with old and new instances", 
+						help="A comma separated list, with headers and two column, of Inventory URLs to the instances you want to move holdings FROM and the instances you want to move holdigns TO.", 
 						widget='FileChooser')
 	parser.add_argument("save_backup", 
 						help="Where do you want to save the backed up holdings?",
@@ -26,7 +26,7 @@ def user_input():
 						help="Where do you want to save the list of obsolete instances to delete?",
 						widget='FileChooser'),
 	parser.add_argument("check", 
-						help="Do you want to move the holdings between these instances?")
+						help="Do you really want to move the holdings between the instances specified in the list of records?")
 	args = parser.parse_args()
 	args = vars(args)
 	return args
@@ -131,12 +131,13 @@ if "I do" in input["check"]:
 					# PUT the reassociated holding to FOLIO
 					success = make_put_request("holdings-storage/holdings", holdings_id, reassociated_holding)
 					if success:
-						qnty_reassociated =+ 1
+						qnty_reassociated += 1
 						print(f"\nHolding {holdings_id} successfully updated in FOLIO!")
 
 						# Append now obsolete inst_id to list, for future use
 						if old_inst_id not in old_instances:
 							old_instances.append(old_inst_id)
+							qnty_replaced += 1
 			else:
 				print(f"\nNo holdings found for {old_inst_id}!")
 
