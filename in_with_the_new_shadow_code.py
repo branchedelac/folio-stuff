@@ -6,7 +6,7 @@ import requests
 from gooey import Gooey, GooeyParser
 import authqx
 
-
+# Add some cool design to the gooey UI
 @Gooey(program_name='Move FOLIO holdings between instances',
 header_bg_color='#FFFFFF',
 body_bg_color='#FFFFFF',
@@ -14,6 +14,7 @@ footer_bg_color='#FFFFFF',
 image_dir='./local_data/',
 )
 
+# I'm not sure why I made this a function rather than part of the 'main' script
 def user_input():
 	parser = GooeyParser(description="Please fill in all the fields below.")
 	parser.add_argument("list_of_records", 
@@ -31,13 +32,16 @@ def user_input():
 	args = vars(args)
 	return args
 
-# A function for extracting the instance ID from an Inventory URL
+# Define a function that extractis the instance ID from an Inventory URL
+# TODO Check length of clean_id to make sure it's really a UUID before returning it
 def id_from_url(url):
 	url_wo_base = re.sub(".*inventory\/view\/", "", url)
 	clean_id = re.sub("\?.*", "", url_wo_base)
 	return clean_id
 
-# A function for making a GET request with a query
+# Define a function that makes a GET request with a CQL query
+# TODO Add limit and offset parametres
+# TODO Explore putting parametres like query, limit, offsett in the params dict
 def make_get_request_w_query(endpoint, field, value):
 	baseurl = authqx.okapiUrl
 
@@ -45,7 +49,7 @@ def make_get_request_w_query(endpoint, field, value):
 	params = {'format': 'json'}
 	request_url = f"{baseurl}/{endpoint}?query=({field}={value})"
 	
-	print(f"\nFetching records: {request_url}")
+	print(f"\nFetching holdings: {request_url}")
 
 	# Make a GET request
 	request = requests.get(request_url, headers=headers, params=params)
@@ -56,7 +60,7 @@ def make_get_request_w_query(endpoint, field, value):
 	else:
 		print(f"Something went wrong with {request_url}! Status code: {request.status_code}.")
 
-# A function for making a PUT request with a query
+# Define a function that makes a PUT request with a json object as the body
 def make_put_request(endpoint, uuid, body):
 	baseurl = authqx.okapiUrl
 
@@ -73,12 +77,12 @@ def make_put_request(endpoint, uuid, body):
 
 	# Check that the status code is 204 (success) - if it isn't, print info about this!
 	status = request.status_code
-	if request.status_code != 204:
-		print(f"\nSomething went wrong with {uuid}! Status code: {status}")
-	else:
+	if request.status_code == 204:
 		return status
-
-# Open a csv with headers and two columns containing:
+	else:
+		print(f"\nSomething went wrong with {uuid}! Status code: {status}")
+		
+# Open a csv with a header row and two columns containing:
 # old_instance, new_instance
 # UUID of the old instance, UUID of the new instance
 input = user_input()
@@ -88,9 +92,10 @@ infile = input["list_of_records"]
 if "I do" in input["check"]:
 	print(f"...\nStarting to work with {input['list_of_records']}...")
 
-# Create an empty list to store the UUIDs of old instances
+# Create empty lists where we'll store obsolete instance UUIDs and backed up holdings
 	old_instances = []
 	backup_holdings = []
+# Initiate counters to keep track of how many instances we've moved holdings from, and how many holdings we've moved
 	qnty_replaced = 0
 	qnty_reassociated = 0
 # Create an empty dictionary to store UUIDs holdings (key) and new instance ids (value)
@@ -101,8 +106,9 @@ if "I do" in input["check"]:
 		reader = csv.reader(a)
 		dupe_instances = list(reader)
 
+		# Iterate through the list of IDs
 		for row in dupe_instances[1:]:
-			# Work with the old instance: extract and save the id, 
+			# Extract and save the UUID of the old instance (index 0)
 			old_inst = row[0]
 			old_inst_id = id_from_url(old_inst)
 
@@ -110,34 +116,40 @@ if "I do" in input["check"]:
 			get_associated_holdings = make_get_request_w_query("holdings-storage/holdings", "instanceId", old_inst_id)
 			holdings = get_associated_holdings['holdingsRecords']
 			
+			# If any holdings are returned, we want to move them to the new instance (index 1)
 			if len(holdings) > 0:
-				# Work with the new instance
+				# Extract and save the UUID of the new instance
 				new_inst = row[1]
 				new_inst_id = id_from_url(new_inst)
 
-				for holding in holdings:
-					# Back up the holding!
-					backup_holdings.append(holding)
-					
-					holdings_id = holding['id']
+				print(f"\nMove holding {len(holdings)} holdings from instance {old_inst_id} to instance {new_inst_id}!")
 
-					print(f"\nMove holding {holdings_id} from instance {old_inst_id} to instance {new_inst_id}!")
+				for holding in holdings:
+					# Back up the holding json object!
+					backup_holdings.append(holding)
+
+					# Add the holdings ID (key), and a list of old_inst_id and new_inst_id (value), to dictionary new_instances_and_holdings
+					holdings_id = holding['id']
 					new_instances_and_holdings[holdings_id] = [old_inst_id, new_inst_id]
 					
 					# Change the instanceId value from the current UUID to new_inst_id
 					holding['instanceId'] = new_inst_id
+					
+					# Retransform holding from a python dictionary into a correct json object
+					# TODO Figure out when it becomes a python dicitonary
 					reassociated_holding = json.dumps(holding, ensure_ascii=False)
 
 					# PUT the reassociated holding to FOLIO
 					success = make_put_request("holdings-storage/holdings", holdings_id, reassociated_holding)
 					if success:
 						qnty_reassociated += 1
-						print(f"\nHolding {holdings_id} successfully updated in FOLIO!")
 
-						# Append now obsolete inst_id to list, for future use
+						# Append now obsolete old_inst_id to list old_instances, for future use
 						if old_inst_id not in old_instances:
 							old_instances.append(old_inst_id)
 							qnty_replaced += 1
+					
+						print(f"\nHolding {holdings_id} successfully moved from instance {old_inst_id} to instance {new_inst_id}!")
 			else:
 				print(f"\nNo holdings found for {old_inst_id}!")
 
