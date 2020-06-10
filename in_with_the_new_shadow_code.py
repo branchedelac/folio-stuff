@@ -1,8 +1,12 @@
+# TODO Införliva feedback från Siska: 
+# Vad händer om det finns dependencies till t.ex. lån, ordrar, osv (minns att vi diskuterat detta med Charlotte - borde testa). Lån verkar klara sig, däremot är det knepigt med öppna ordrar.
+
 import json
 import argparse
 import csv
 import re
 import requests
+import time
 from gooey import Gooey, GooeyParser
 import authqx
 
@@ -18,7 +22,7 @@ image_dir='./local_data/',
 def user_input():
 	parser = GooeyParser(description="Please fill in all the fields below.")
 	parser.add_argument("list_of_records", 
-						help="A comma separated list, with headers and two column, of Inventory URLs to the instances you want to move holdings FROM and the instances you want to move holdigns TO.", 
+						help="A two column csv containing Inventory URLs for to the instances you want to move holdings FROM and TO. See format below: \n\nfrom_instance,to_instance\nuuid1a,uuid1b\nuuid2a,uuid2b", 
 						widget='FileChooser')
 	parser.add_argument("save_backup", 
 						help="Where do you want to save the backed up holdings?",
@@ -33,14 +37,18 @@ def user_input():
 	return args
 
 # Define a function that extractis the instance ID from an Inventory URL
-# TODO Check length of clean_id to make sure it's really a UUID before returning it
 def id_from_url(url):
 	url_wo_base = re.sub(".*inventory\/view\/", "", url)
 	clean_id = re.sub("\?.*", "", url_wo_base)
-	return clean_id
 
+	# Verify that what we have is a valid UUID (pattern from https://dev.folio.org/guides/uuids/)
+	uuid_pattern = re.compile("^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[1-5][a-fA-F0-9]{3}-[89abAB][a-fA-F0-9]{3}-[a-fA-F0-9]{12}$")
+	if uuid_pattern.match(clean_id):
+		return clean_id
+	else: 
+		print(f"\nUnable to extract UUID from URL {url}. Skipping!\n")
+	
 # Define a function that makes a GET request with a CQL query
-# TODO Add limit and offset parametres
 # TODO Explore putting parametres like query, limit, offsett in the params dict
 def make_get_request_w_query(endpoint, field, value):
 	baseurl = authqx.okapiUrl
@@ -49,7 +57,7 @@ def make_get_request_w_query(endpoint, field, value):
 	params = {'format': 'json'}
 	request_url = f"{baseurl}/{endpoint}?query=({field}={value})"
 	
-	print(f"\nFetching holdings: {request_url}")
+	#print(f"\nFetching holdings for {request_url}")
 
 	# Make a GET request
 	request = requests.get(request_url, headers=headers, params=params)
@@ -71,7 +79,7 @@ def make_put_request(endpoint, uuid, body):
 	params = {'format': 'json'}
 	request_url = f"{baseurl}/{endpoint}/{uuid}"
 	
-	print(f"\nPutting record: {request_url}")
+	#print(f"\nPutting updated holding to {request_url}")
 
 	request = requests.put(request_url, data=body.encode('utf-8'), headers=headers, params=params)
 
@@ -83,7 +91,7 @@ def make_put_request(endpoint, uuid, body):
 		print(f"\nSomething went wrong with {uuid}! Status code: {status}")
 		
 # Open a csv with a header row and two columns containing:
-# old_instance, new_instance
+# from_instance, to_instance
 # UUID of the old instance, UUID of the new instance
 input = user_input()
 infile = input["list_of_records"]
@@ -93,72 +101,95 @@ if "I do" in input["check"]:
 	print(f"...\nStarting to work with {input['list_of_records']}...")
 
 # Create empty lists where we'll store obsolete instance UUIDs and backed up holdings
-	old_instances = []
+	from_instances = []
 	backup_holdings = []
 # Initiate counters to keep track of how many instances we've moved holdings from, and how many holdings we've moved
 	qnty_replaced = 0
 	qnty_reassociated = 0
-# Create an empty dictionary to store UUIDs holdings (key) and new instance ids (value)
-	new_instances_and_holdings = {}
 
-	# Read csv file into list of list
+	#Initiate counters to keep track of progress
+	num_records = 0
+	start = time.time()
+
+	# Create an empty dictionary to store holdings UUIDs(key) and old + new instance UUDS (value)
+	relinked_instances_and_holdings = {}
+
+	# Read csv file into a dict
+    # TODO Read as dict and refer to descriptive column names
 	with open(infile, "r") as a:	
-		reader = csv.reader(a)
-		dupe_instances = list(reader)
+		dupe_instances = csv.DictReader(a)
 
-		# Iterate through the list of IDs
-		for row in dupe_instances[1:]:
+		# Iterate through the dict of IDs
+		for row in dupe_instances:
 			# Extract and save the UUID of the old instance (index 0)
-			old_inst = row[0]
-			old_inst_id = id_from_url(old_inst)
+			from_inst = row['from_instance']
+			from_inst_id = id_from_url(from_inst)
 
-			# Get all holdings for this instanceId
-			get_associated_holdings = make_get_request_w_query("holdings-storage/holdings", "instanceId", old_inst_id)
-			holdings = get_associated_holdings['holdingsRecords']
-			
-			# If any holdings are returned, we want to move them to the new instance (index 1)
-			if len(holdings) > 0:
-				# Extract and save the UUID of the new instance
-				new_inst = row[1]
-				new_inst_id = id_from_url(new_inst)
+			# If we fail to extract a UUID, skipt to the end 
+			if from_inst_id is not None:
 
-				print(f"\nMove holding {len(holdings)} holdings from instance {old_inst_id} to instance {new_inst_id}!")
+				# Get all holdings for this instanceId
+				get_associated_holdings = make_get_request_w_query("holdings-storage/holdings", "instanceId", from_inst_id)
+				holdings = get_associated_holdings['holdingsRecords']
+				
+				# If any holdings are returned, we want to move them to the new instance (index 1)
+				if len(holdings) > 0:
+					# Extract and save the UUID of the new instance
+					to_inst = row['to_instance']
+					to_inst_id = id_from_url(to_inst)
 
-				for holding in holdings:
-					# Back up the holding json object!
-					backup_holdings.append(holding)
+					#print(f"\nMove holding {len(holdings)} holdings from instance {from_inst_id} to instance {to_inst_id}!")
 
-					# Add the holdings ID (key), and a list of old_inst_id and new_inst_id (value), to dictionary new_instances_and_holdings
-					holdings_id = holding['id']
-					new_instances_and_holdings[holdings_id] = [old_inst_id, new_inst_id]
-					
-					# Change the instanceId value from the current UUID to new_inst_id
-					holding['instanceId'] = new_inst_id
-					
-					# Retransform holding from a python dictionary into a correct json object
-					# TODO Figure out when it becomes a python dicitonary
-					reassociated_holding = json.dumps(holding, ensure_ascii=False)
+					for holding in holdings:
+						# Back up the holding json object!
+						backup_holdings.append(holding)
 
-					# PUT the reassociated holding to FOLIO
-					success = make_put_request("holdings-storage/holdings", holdings_id, reassociated_holding)
-					if success:
-						qnty_reassociated += 1
+						# Add the holdings ID (key), and a list of from_inst_id and to_inst_id (value), to dictionary relinked_instances_and_holdings
+						holdings_id = holding['id']
+						relinked_instances_and_holdings[holdings_id] = [from_inst_id, to_inst_id]
+						
+						# Change the instanceId value from the current UUID to to_inst_id
+						holding['instanceId'] = to_inst_id
+						
+						# Retransform holding from a python dictionary into a correct json object
+						# TODO Figure out why I have to do this (ie when the holding becomes a python dicitonary not a json object)
+						reassociated_holding = json.dumps(holding, ensure_ascii=False)
 
-						# Append now obsolete old_inst_id to list old_instances, for future use
-						if old_inst_id not in old_instances:
-							old_instances.append(old_inst_id)
-							qnty_replaced += 1
-					
-						print(f"\nHolding {holdings_id} successfully moved from instance {old_inst_id} to instance {new_inst_id}!")
-			else:
-				print(f"\nNo holdings found for {old_inst_id}!")
+						# PUT the reassociated holding to FOLIO
+						success = make_put_request("holdings-storage/holdings", holdings_id, reassociated_holding)
+						if success:
+							qnty_reassociated += 1
 
-	# Print some results
-	backup_holdings = json.dumps(backup_holdings, ensure_ascii=False)
-	print(f"A map of holdings and their old + new instances:\n {new_instances_and_holdings} \n\nBacked up holdings:\n {backup_holdings}", file=open(input['save_backup'], "a"))
-	print(old_instances, file=open(input['save_ids'], "a"))
+							# Append now obsolete from_inst_id to list from_instances, for future use
+							if from_inst_id not in from_instances:
+								from_instances.append(from_inst_id)
+								qnty_replaced += 1
+						
+							print(f"\nHolding {holdings_id} successfully moved from instance {from_inst_id} to instance {to_inst_id}!")
 
-	print(f"\n---\n\n{qnty_replaced} instances have been replaced, and {qnty_reassociated} holdings successfully reassociated. \n\n A map of holdings and old + new instance UUIDs, as well as a list of UUIDs for now obsolete instances, have been saved to the desired location.")
+				else:
+					print(f"\nNo holdings found for {from_inst_id}\n")
+				
+				#Give FOLIO some rest before sending the next request
+				time.sleep(0.01)
+
+			#Track progress and speed going through the items on the list
+			num_records += 1
+			if num_records % 100 == 0:
+				print("{} recs/s\t{}".format(
+					round(num_records/(time.time() - start)),
+					num_records), flush=True)
+
+	# Print a result summary in the terminal  
+	print(f"\n---\n\n{qnty_replaced} instances have been dsiconnected from their previous holdings, and {qnty_reassociated} holdings successfully reassociated.")
+
+	if qnty_replaced > 0:
+		# Print some results to two files
+		backup_holdings = json.dumps(backup_holdings, ensure_ascii=False)
+		print(f"A map of holdings and their old + new instances:\n {relinked_instances_and_holdings} \n\nBacked up holdings:\n{backup_holdings}", file=open(input['save_backup'], "a"))
+		print(from_instances, file=open(input['save_ids'], "a"))
+
+		print("\n A map of holdings and old + new instance UUIDs, as well as a list of UUIDs for now obsolete instances, have been saved to the desired location.")
 
 else:
-	print("Ok! No holdings have been moved.")
+	print("Looks like you didn't really want to move any holdings between instances. That's ok! No holdings have been moved.")
