@@ -131,6 +131,9 @@ if "I do" in input["check"]:
 				# Get all holdings for this instanceId
 				get_associated_holdings = make_get_request_w_query("holdings-storage/holdings", "instanceId", from_inst_id)
 				holdings = get_associated_holdings['holdingsRecords']
+				# Make sure FOLIO gets some rest before the next API request
+				time.sleep(0.01)
+				
 				
 				# If any holdings are returned, we want to move them to the new instance (index 1)
 				if len(holdings) > 0:
@@ -152,7 +155,6 @@ if "I do" in input["check"]:
 						holding['instanceId'] = to_inst_id
 						
 						# Retransform holding from a python dictionary into a correct json object
-						# TODO Figure out why I have to do this (ie when the holding becomes a python dicitonary not a json object)
 						reassociated_holding = json.dumps(holding, ensure_ascii=False)
 
 						# PUT the reassociated holding to FOLIO
@@ -166,12 +168,12 @@ if "I do" in input["check"]:
 								qnty_replaced += 1
 						
 							print(f"\nHolding {holdings_id} successfully moved from instance {from_inst_id} to instance {to_inst_id}!")
+						
+						# Make sure FOLIO gets some rest before the next API request
+						time.sleep(0.01)
 
 				else:
 					print(f"\nNo holdings found for {from_inst_id}\n")
-				
-				#Give FOLIO some rest before sending the next request
-				time.sleep(0.01)
 
 			#Track progress and speed going through the items on the list
 			num_records += 1
