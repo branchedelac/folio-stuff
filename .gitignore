@@ -1,6 +1,9 @@
-#Real data and authentication
+# Authentication
 authlocal.py
 authqx.py
+authbug.py
+
+# Test (and real) data
 local_data
 
 #Data for and results from testing

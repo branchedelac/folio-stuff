@@ -8,7 +8,8 @@ import re
 import requests
 import time
 from gooey import Gooey, GooeyParser
-import authqx
+from datetime import timedelta
+import authbug
 
 # Add some cool design to the gooey UI
 @Gooey(program_name='Move FOLIO holdings between instances',
@@ -50,10 +51,12 @@ def id_from_url(url):
 	
 # Define a function that makes a GET request with a CQL query
 # TODO Explore putting parametres like query, limit, offsett in the params dict
-def make_get_request_w_query(endpoint, field, value):
-	baseurl = authqx.okapiUrl
+# TODO A separate reusable function that sets environment specific headers, and makes it easier to change environment
 
-	headers = {'x-okapi-tenant': authqx.xOkapiTenant, 'x-okapi-token': authqx.xOkapiToken}
+def make_get_request_w_query(endpoint, field, value):
+	baseurl = authbug.okapiUrl
+
+	headers = {'x-okapi-tenant': authbug.xOkapiTenant, 'x-okapi-token': authbug.xOkapiToken}
 	params = {'format': 'json'}
 	request_url = f"{baseurl}/{endpoint}?query=({field}={value})"
 	
@@ -70,10 +73,10 @@ def make_get_request_w_query(endpoint, field, value):
 
 # Define a function that makes a PUT request with a json object as the body
 def make_put_request(endpoint, uuid, body):
-	baseurl = authqx.okapiUrl
+	baseurl = authbug.okapiUrl
 
-	headers = {'x-okapi-tenant': authqx.xOkapiTenant, 
-	'x-okapi-token': authqx.xOkapiToken, 	
+	headers = {'x-okapi-tenant': authbug.xOkapiTenant, 
+	'x-okapi-token': authbug.xOkapiToken, 	
 	'Content-Type': 'application/json; charset=utf-8'
 }
 	params = {'format': 'json'}
@@ -98,7 +101,7 @@ infile = input["list_of_records"]
 
 # Make sure the person running the script knows what they're doing
 if "I do" in input["check"]:
-	print(f"...\nStarting to work with {input['list_of_records']}...")
+	print(f"...\nStarting to work with {input['list_of_records']}... in {authbug.okapiUrl}")
 
 # Create empty lists where we'll store obsolete instance UUIDs and backed up holdings
 	from_instances = []
@@ -167,7 +170,7 @@ if "I do" in input["check"]:
 								from_instances.append(from_inst_id)
 								qnty_replaced += 1
 						
-							print(f"\nHolding {holdings_id} successfully moved from instance {from_inst_id} to instance {to_inst_id}!")
+							#print(f"\nHolding {holdings_id} successfully moved from instance {from_inst_id} to instance {to_inst_id}!")
 						
 						# Make sure FOLIO gets some rest before the next API request
 						time.sleep(0.01)
@@ -177,13 +180,15 @@ if "I do" in input["check"]:
 
 			#Track progress and speed going through the items on the list
 			num_records += 1
-			if num_records % 100 == 0:
+			if num_records % 10 == 0:
 				print("{} recs/s\t{}".format(
 					round(num_records/(time.time() - start)),
 					num_records), flush=True)
 
-	# Print a result summary in the terminal  
-	print(f"\n---\n\n{qnty_replaced} instances have been dsiconnected from their previous holdings, and {qnty_reassociated} holdings successfully reassociated.")
+	# Print a result summary in the terminal
+	elapsed = (time.time() - start)
+
+	print(f"\n---\n\n{qnty_replaced} instances have been dsiconnected from their previous holdings, and {qnty_reassociated} holdings successfully reassociated.\nDuration of the process: {str(timedelta(seconds=elapsed))}")
 
 	if qnty_replaced > 0:
 		# Print some results to two files
