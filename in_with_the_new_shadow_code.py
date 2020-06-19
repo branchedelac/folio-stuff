@@ -1,5 +1,20 @@
+# TODO Införliva feedback från Theodor:
+# Använd Python truth istället för None DONE
+# Förfina PUT-request DONE
+# Fixa ödesdiger bugg DONE
+# Deindentera huvuddelen med något som avslutar skriptet DONE
+# Objektorientera mera
+# Använd exceptions (läs på, testa, fundera på var de kan vara till användning, implementera)
+# Lägga instansidn i tuple (de ska vara två!) istället för lista i dict DONE
+# Fixa så att moduler inte är rödprickade i VS Code DONE
+# Utforska hur man kan konstruera urlar med requests 
+  
 # TODO Införliva feedback från Siska: 
 # Vad händer om det finns dependencies till t.ex. lån, ordrar, osv (minns att vi diskuterat detta med Charlotte - borde testa). Lån verkar klara sig, däremot är det knepigt med öppna ordrar.
+
+# TODO Var lagra tenant-specifika värden (t.ex. okapi-url, token)? 
+# Fundera på Utforska t.ex .env och configparser
+
 
 import json
 import argparse
@@ -10,7 +25,7 @@ import time
 from gooey import Gooey, GooeyParser
 from datetime import timedelta
 # Var är det bäst att lagra alla sina tenant-specifika tokens etc?
-import authbug
+import authbug as auth
 
 # Add some cool design to the gooey UI
 @Gooey(program_name='Move FOLIO holdings between instances',
@@ -50,14 +65,22 @@ def id_from_url(url):
     else: 
         print(f"\nUnable to extract UUID from URL {url}. Skipping!\n")
     
+# Define a function that sets base url and headers for API requests
+def set_local_variables():
+    local_variables = {
+        'baseurl' : auth.okapiUrl,
+        'headers' : {'x-okapi-tenant': auth.xOkapiTenant, 'x-okapi-token': auth.xOkapiToken}
+    }
+    return local_variables
+
+
 # Define a function that makes a GET request with a CQL query
-# TODO Explore putting parametres like query, limit, offsett in the params dict
-# TODO A separate reusable function that sets environment specific headers, and makes it easier to change environment
-
+# TODO Explore putting parametres like query, limit, offset in the params dict
 def make_get_request_w_query(endpoint, field, value):
-    baseurl = authbug.okapiUrl
+    local_variables = set_local_variables()
 
-    headers = {'x-okapi-tenant': authbug.xOkapiTenant, 'x-okapi-token': authbug.xOkapiToken}
+    baseurl = local_variables['baseurl']
+    headers = local_variables['headers']
     params = {'format': 'json'}
     request_url = f"{baseurl}/{endpoint}?query=({field}={value})"
     
@@ -71,15 +94,17 @@ def make_get_request_w_query(endpoint, field, value):
         return response
     else:
         print(f"Something went wrong with {request_url}! Status code: {request.status_code}.")
+        print(headers)
 
 # Define a function that makes a PUT request with a json object as the body
 def make_put_request(endpoint, uuid, body):
-    baseurl = authbug.okapiUrl
+    local_variables = set_local_variables()
 
-    headers = {'x-okapi-tenant': authbug.xOkapiTenant, 
-    'x-okapi-token': authbug.xOkapiToken, 	
-    'Content-Type': 'application/json; charset=utf-8'
-}
+    baseurl = local_variables['baseurl']
+    headers = local_variables['headers']
+
+    headers['Content-Type'] = 'application/json; charset=utf-8'
+
     params = {'format': 'json'}
     request_url = f"{baseurl}/{endpoint}/{uuid}"
     
@@ -104,7 +129,7 @@ infile = input["list_of_records"]
 if "I do" != input["check"]:
     exit("Looks like you didn't really want to move any holdings between instances. That's ok! No holdings have been moved.")
 
-print(f"...\nStarting to work with {input['list_of_records']}... in {authbug.okapiUrl}")
+print(f"...\nStarting to work with {input['list_of_records']}... in {auth.okapiUrl}")
 
 # Create empty lists where we'll store obsolete instance UUIDs and backed up holdings
 from_instances = []
@@ -132,6 +157,7 @@ with open(infile, "r") as a:
         if from_inst_id:
             # Get all holdings for this instanceId
             get_associated_holdings = make_get_request_w_query("holdings-storage/holdings", "instanceId", from_inst_id)
+            # TODO Handle exception if the response is empty (ie not [] holdings, but request failed)
             holdings = get_associated_holdings['holdingsRecords']
             # Make sure FOLIO gets some rest before the next API request
             time.sleep(0.01)
@@ -147,7 +173,7 @@ with open(infile, "r") as a:
                     backup_holdings.append(holding)
                     # Add the holdings ID (key), and a list of from_inst_id and to_inst_id (value), to dictionary relinked_instances_and_holdings
                     holdings_id = holding['id']
-                    relinked_instances_and_holdings[holdings_id] = [from_inst_id, to_inst_id]
+                    relinked_instances_and_holdings[holdings_id] = (from_inst_id, to_inst_id)
                     
                     # Change the instanceId value from the current UUID to to_inst_id
                     holding['instanceId'] = to_inst_id
