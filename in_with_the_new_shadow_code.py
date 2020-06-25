@@ -22,10 +22,11 @@ import csv
 import re
 import requests
 import time
+import traceback
 from gooey import Gooey, GooeyParser
 from datetime import timedelta
 # Var är det bäst att lagra alla sina tenant-specifika tokens etc?
-import authbug as auth
+import authqx as auth
 
 # Add some cool design to the gooey UI
 @Gooey(program_name='Move FOLIO holdings between instances',
@@ -55,6 +56,7 @@ def user_input():
 
 # Define a function that extractis the instance ID from an Inventory URL
 def id_from_url(url):
+
     url_wo_base = re.sub(".*inventory\/view\/", "", url)
     clean_id = re.sub("\?.*", "", url_wo_base)
 
@@ -62,15 +64,17 @@ def id_from_url(url):
     uuid_pattern = re.compile("^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[1-5][a-fA-F0-9]{3}-[89abAB][a-fA-F0-9]{3}-[a-fA-F0-9]{12}$")
     if uuid_pattern.match(clean_id):
         return clean_id
-    else: 
-        print(f"\nUnable to extract UUID from URL {url}. Skipping!\n")
-    
+    else:
+        raise ValueError(f"Unable to extract instance UUID from {url}.")
+
+
 # Define a function that sets base url and headers for API requests
 def set_local_variables():
     local_variables = {
         'baseurl' : auth.okapiUrl,
         'headers' : {'x-okapi-tenant': auth.xOkapiTenant, 'x-okapi-token': auth.xOkapiToken}
     }
+
     return local_variables
 
 
@@ -88,13 +92,11 @@ def make_get_request_w_query(endpoint, field, value):
 
     # Make a GET request
     request = requests.get(request_url, headers=headers, params=params)
-    # If the status code is 200, parse the response as json
-    if request.status_code == 200:
-        response = request.json()
-        return response
+   
+    if request.status_code != 200:
+        raise Exception(f"Request failed for {request_url}. {request.text}\n")
     else:
-        print(f"Something went wrong with {request_url}! Status code: {request.status_code}.")
-        print(headers)
+        return request
 
 # Define a function that makes a PUT request with a json object as the body
 def make_put_request(endpoint, uuid, body):
@@ -113,11 +115,10 @@ def make_put_request(endpoint, uuid, body):
     request = requests.put(request_url, json=body, headers=headers, params=params)
 
     # Check that the status code is 204 (success) - if it isn't, print info about this!
-    status = request.status_code
-    if request.status_code == 204:
-        return status
+    if request.status_code != 204:
+        raise Exception(f"Request failed for {request_url}. {request.text}\n")
     else:
-        print(f"\nSomething went wrong with {uuid}! Status code: {status}")
+        return request
         
 # Open a csv with a header row and two columns containing:
 # from_instance, to_instance
@@ -129,45 +130,73 @@ infile = input["list_of_records"]
 if "I do" != input["check"]:
     exit("Looks like you didn't really want to move any holdings between instances. That's ok! No holdings have been moved.")
 
-print(f"...\nStarting to work with {input['list_of_records']}... in {auth.okapiUrl}")
+print(f"...\nStarting to work with {input['list_of_records']}... in {auth.okapiUrl}\n")
 
 # Create empty lists where we'll store obsolete instance UUIDs and backed up holdings
 from_instances = []
 backup_holdings = []
+failed_rows_report = []
+error_report = []
+# Create an empty dictionary to store holdings UUIDs(key) and old + new instance UUDS (value)
+relinked_instances_and_holdings = {}
+
 # Initiate counters to keep track of how many instances we've moved holdings from, and how many holdings we've moved
 qnty_replaced = 0
 qnty_reassociated = 0
 #Initiate counters to keep track of progress
 num_records = 0
 start = time.time()
-# Create an empty dictionary to store holdings UUIDs(key) and old + new instance UUDS (value)
-relinked_instances_and_holdings = {}
+
 
 # Read csv file into a dict
-with open(infile, "r") as a:	
-    dupe_instances = csv.DictReader(a)
+try:
+    with open(infile, "r") as a:	
+        dupe_instances = csv.DictReader(a)
 
-    # Iterate through the dict of IDs
-    for row in dupe_instances:
-        # Extract and save the UUID of the old instance (index 0)
-        from_inst = row['from_instance']
-        from_inst_id = id_from_url(from_inst)
-        
-        # If we fail to extract a UUID, skipt to the end of this for loop. Otherwise... 
-        if from_inst_id:
-            # Get all holdings for this instanceId
-            get_associated_holdings = make_get_request_w_query("holdings-storage/holdings", "instanceId", from_inst_id)
-            # TODO Handle exception if the response is empty (ie not [] holdings, but request failed)
-            holdings = get_associated_holdings['holdingsRecords']
-            # Make sure FOLIO gets some rest before the next API request
-            time.sleep(0.01)
-            
-            # If any holdings are returned, we want to move them to the new instance (index 1)
-            if any(holdings):
+        # Iterate through the dict of IDs
+        for row in dupe_instances:
+            try:
+                # Extract and save the UUID of the old instance (column "from_instance")
+                from_inst = row['from_instance']
+                from_inst_id = id_from_url(from_inst)
+
                 # Extract and save the UUID of the new instance
                 to_inst = row['to_instance']
                 to_inst_id = id_from_url(to_inst)
-                #print(f"\nMove holding {len(holdings)} holdings from instance {from_inst_id} to instance {to_inst_id}!")
+
+            except ValueError as v1:
+                failed_rows_report.append(row)
+                error_report.append(v1)
+                print(v1, "Skip to next row.")
+                continue
+
+            # If we fail to extract a UUID, skipt to the end of this for loop. Otherwise... 
+            try: 
+                # Get all holdings for this instanceId
+                get_associated_holdings = make_get_request_w_query("holdings-storage/holdings", "instanceId", from_inst_id)
+                parsed_holdings = get_associated_holdings.json()
+                # TODO Handle exception if the response is empty (ie not [] holdings, but request failed)
+                holdings = parsed_holdings['holdingsRecords']
+                # Make sure FOLIO gets some rest before the next API request
+                time.sleep(0.01)
+                
+                if not any(holdings):
+                    raise ValueError(f"No holdings found for {from_inst_id}.")
+            
+            except ValueError as v2:
+                print(v2, "Skip to next row.")
+                failed_rows_report.append(row)
+                error_report.append(v2)
+                continue
+
+            except Exception as e1:
+                print(e1, "Skip to next row.")
+                error_report.append(e1)
+                failed_rows_report.append(row)
+                continue
+
+            # If any holdings were returned, we want to move them to the new instance (index 1)
+            try:
                 for holding in holdings:
                     # Back up the holding json object!
                     backup_holdings.append(holding)
@@ -178,21 +207,27 @@ with open(infile, "r") as a:
                     # Change the instanceId value from the current UUID to to_inst_id
                     holding['instanceId'] = to_inst_id
                     reassociated_holding = holding
+                    
                     # PUT the reassociated holding to FOLIO
                     success = make_put_request("holdings-storage/holdings", holdings_id, reassociated_holding)
                     if success:
+                        print(f"\nHoldings successfully moved from {from_inst_id} to {to_inst_id}\n")
                         qnty_reassociated += 1
                         # Append now obsolete from_inst_id to list from_instances, for future use
                         if from_inst_id not in from_instances:
                             from_instances.append(from_inst_id)
                             qnty_replaced += 1
-                    
-                        #print(f"\nHolding {holdings_id} successfully moved from instance {from_inst_id} to instance {to_inst_id}!")
-                    
-                    # Make sure FOLIO gets some rest before the next API request
-                    time.sleep(0.01)
-            else:
-                print(f"\nNo holdings found for {from_inst_id}\n")
+
+            except Exception as e2:
+                failed_rows_report.append(row)
+                error_report.append(e2)
+                print(e2)
+                break 
+                # Make sure FOLIO gets some rest before the next API request
+                time.sleep(0.01)
+            # else:
+            #     print(f"\nNo holdings found for {from_inst_id}\n")
+
 
         #Track progress and speed going through the items on the list
         num_records += 1
@@ -202,11 +237,15 @@ with open(infile, "r") as a:
                 num_records), flush=True)
                 
 # Print a result summary in the terminal
-elapsed = (time.time() - start)
-print(f"\n---\n\n{qnty_replaced} instances have been dsiconnected from their previous holdings, and {qnty_reassociated} holdings successfully reassociated.\nDuration of the process: {str(timedelta(seconds=elapsed))}")
-if qnty_replaced > 0:
-    # Print some results to two files
-    backup_holdings = json.dumps(backup_holdings, ensure_ascii=False)
-    print(f"A map of holdings and their old + new instances:\n {relinked_instances_and_holdings} \n\nBacked up holdings:\n{backup_holdings}", file=open(input['save_backup'], "a"))
-    print(from_instances, file=open(input['save_ids'], "a"))
-    print("\n A map of holdings and old + new instance UUIDs, as well as a list of UUIDs for now obsolete instances, have been saved to the desired location.")
+finally:
+    elapsed = (time.time() - start)
+    print(f"\n---\n\n{qnty_replaced} instances have been dsiconnected from their previous holdings, and {qnty_reassociated} holdings successfully reassociated.\nDuration of the process: {str(timedelta(seconds=elapsed))}")
+    if qnty_replaced > 0:
+        # Print some results to two files
+        backup_holdings = json.dumps(backup_holdings, ensure_ascii=False)
+        print(f"A map of holdings and their old + new instances:\n {relinked_instances_and_holdings} \n\nBacked up holdings:\n{backup_holdings}", file=open(input['save_backup'], "a"))
+        print(from_instances, file=open(input['save_ids'], "a"))
+        print("\n A map of holdings and old + new instance UUIDs, as well as a list of UUIDs for now obsolete instances, have been saved to the desired location.")
+
+    print("\n", failed_rows_report)
+    print(error_report)
