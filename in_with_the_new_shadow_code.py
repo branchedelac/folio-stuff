@@ -42,10 +42,13 @@ def user_input():
     parser.add_argument("list_of_records", 
                         help="A two column csv containing Inventory URLs for to the instances you want to move holdings FROM and TO. See format below: \n\nfrom_instance,to_instance\nuuid1a,uuid1b\nuuid2a,uuid2b", 
                         widget='FileChooser')
-    parser.add_argument("save_backup", 
+    parser.add_argument("backup", 
                         help="Where do you want to save the backed up holdings?",
                         widget='FileChooser'),
-    parser.add_argument("save_ids", 
+    parser.add_argument("report", 
+                        help="Where do you want to save the report (errors, etc)?",
+                        widget='FileChooser'),
+    parser.add_argument("disconnected_instances", 
                         help="Where do you want to save the list of obsolete instances to delete?",
                         widget='FileChooser'),
     parser.add_argument("check", 
@@ -65,7 +68,7 @@ def id_from_url(url):
     if uuid_pattern.match(clean_id):
         return clean_id
     else:
-        raise ValueError(f"Unable to extract instance UUID from {url}.")
+        raise ValueError(f"Unable to extract instance UUID from {url}")
 
 
 # Define a function that sets base url and headers for API requests
@@ -181,16 +184,16 @@ try:
                 time.sleep(0.01)
                 
                 if not any(holdings):
-                    raise ValueError(f"No holdings found for {from_inst_id}.")
+                    raise ValueError(f"No holdings found for {from_inst_id}")
             
             except ValueError as v2:
-                print(v2, "Skip to next row.")
+                print(f"{v2}. Skip to next row.")
                 failed_rows_report.append(row)
                 error_report.append(v2)
                 continue
 
             except Exception as e1:
-                print(e1, "Skip to next row.")
+                print(f"{e1}. Skip to next row.")
                 error_report.append(e1)
                 failed_rows_report.append(row)
                 continue
@@ -243,9 +246,9 @@ finally:
     if qnty_replaced > 0:
         # Print some results to two files
         backup_holdings = json.dumps(backup_holdings, ensure_ascii=False)
-        print(f"A map of holdings and their old + new instances:\n {relinked_instances_and_holdings} \n\nBacked up holdings:\n{backup_holdings}", file=open(input['save_backup'], "a"))
-        print(from_instances, file=open(input['save_ids'], "a"))
+        print(f"A map of holdings and their old + new instances:\n {relinked_instances_and_holdings} \n\nBacked up holdings:\n{backup_holdings}", file=open(input['backup'], "a"))
+        print(from_instances, file=open(input['disconnected_instances'], "a"))
         print("\n A map of holdings and old + new instance UUIDs, as well as a list of UUIDs for now obsolete instances, have been saved to the desired location.")
 
-    print("\n", failed_rows_report)
-    print(error_report)
+    print("Errors:\n", *error_report, sep = "\n", file=open(input['report'], "a"))
+    print("\n...\n", "Failed rows:\n", failed_rows_report, file=open(input['report'], "a"))
