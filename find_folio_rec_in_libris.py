@@ -1,83 +1,139 @@
 #WIP
 
-# [
-#     {"001": "FOLIOstorage"}, 
-#     {"008": "                                        "}, 
-#     {"245": {"ind1": " ", "ind2": " ", "subfields": [{"a": "Verksamhetsberättelse :"}, {"b": "Biennial report 1994-1996/"}, {"c": "Onsala space observatory"}]}}, 
-#     {"250": {"ind1": " ", "ind2": " ", "subfields": [{"a": "1996"}]}}, 
-#     {"260": {"ind1": " ", "ind2": " ", "subfields": [{"c": "1996"}]}}, 
-#     {"300": {"ind1": " ", "ind2": " ", "subfields": [{"a": "99 s."}]}}, 
-#     {"710": {"ind1": "2", "ind2": " ", "subfields": [{"a": "Chalmers tekniska högskola."}, {"b": "Institutionen för radio- och rymdvetenskap"}]}}, 
-#     {"907": {"ind1": " ", "ind2": " ", "subfields": [{"a": ".b11562444"}, {"b": "hbib "}, {"c": "s"}]}}, 
-#     {"902": {"ind1": " ", "ind2": " ", "subfields": [{"a": "190628"}]}}, 
-#     {"998": {"ind1": " ", "ind2": " ", "subfields": [{"b": "0"}, {"c": "      "}, {"d": "m"}, {"e": "b  "}, {"f": "s"}, {"g": "0"}]}}, 
-#     {"945": {"ind1": " ", "ind2": " ", "subfields": [{"l": "hbib4"}, {"a": "Tp Chalmers tekniska högskola. Årsrapporter"}]}}, 
-#     {"999": {"ind1": "f", "ind2": "f", "subfields": [{"i": "dcd1b847-bc46-4cb1-b906-fd8b7ac938d7"}]}}
-# ]
-
 # Read file, create dictionary with FOLIO UUID (999 $i) as key, and an list of identifiers as value
 
 import json
 import argparse
-from operator import itemgetter 
+import time
+import requests
+from requests.exceptions import HTTPError
 
 parser = argparse.ArgumentParser()
-parser.add_argument("file", help="A file to analyze", type=str)
+parser.add_argument("infile", help="A file to analyze", type=str)
+parser.add_argument("matchout", help="Save a list of 'match objects' (FOLIO instance id, ISBN, ISSN) here", type=str)
 args = parser.parse_args()
 
-def get_subfield_value(record, field_code, subfield_code):
-    for field in record:
+# Define a function which gets all the *values* of a certain field and subfield combination (eg all 020 $a) and stores them in a list
+
+def get_subfield_values(record, field_code, subfield_code):
+    all_subfield_values = []
+    marc_record = record["fields"]
+    for field in marc_record:
         if field_code in field:
-            subfields = field[field_code]["subfields"]
-            if any(subfields): 
-                for subfield in subfields:
+            try:
+                subfields = field[field_code]["subfields"]
+                for subfield in subfields: 
                     subfield_value = subfield[subfield_code]
-                    return subfield_value
+                    all_subfield_values.append(subfield_value)
+            except KeyError as k1:
+                errors.append(f"Subfield object or subfield code{k1} missing for {record}")
+                continue
+    return all_subfield_values
+
+def make_get_request(value, field):
+    url = f"https://libris.kb.se/find.json?identifiedBy.value={value}&identifiedBy.@type={field}&@type=Instance"
+    response = requests.get(url)
+    if response.status_code != 200:
+        raise Exception(f"Request failed for {value}. {response.text}\n")
+    else:
+        return response
+
+def get_libris_matches(json_response):
+        xl_ids = []
+        for item in parsed_response["items"]:
+            xl_id = item["@id"]
+            xl_ids.append(xl_id)
+            return xl_ids
+
+# Define a class for a "match object", which contains FOLIO instance UUID, ISBN and ISSN (and could be extended with title, author, normalized versions of various values etc)
+# TODO Add other matchable data like title 
 
 class MatchObject:
       def __init__(self, record):
-          self.folio_uuid = get_subfield_value(marc_fields, "999", "i")
-          self.isbn = get_subfield_value(marc_fields, "020", "a")
-          self.issn = get_subfield_value(marc_fields, "022", "a")
+          self.folio_inst_id = get_subfield_values(record, "999", "i")
+          self.isbn = get_subfield_values(record, "020", "a")
+          self.issn = get_subfield_values(record, "022", "a")
+          self.matched_xl_id = ""
 
-match_objects = []
+# Set up some variables to store data in
+printable_match_objects = []
+errors = []
+no_isn = []
+has_isbn = []
+has_issn = []
+has_both = []
 
-with open(args.file) as a:
-    local_records = json.load(a)
-
-    for record in local_records[10000:10003]:
-        marc_fields = record["fields"]
-        object = MatchObject(marc_fields)
-        match_objects.append(object)
-
-for object in match_objects:
-    print(object.isbn)
-
-
-    # # Create an empty dictionary
-    # record_ids = {}
-
-    # for record_object in local_records[10000:10003]:
-    #     # Dig down to the marc data
-    #     marc_record = record_object["fields"]
-
-    #     # Access the value in MARC 999 $i, and store it in a variable folio_uuid
-    #     folio_uuid = get_subfield_value(marc_record, "999", "i")
+#Initiate counters to keep track of progress
+num_records = 0
+start = time.time()
 
 
-    #     # Create an empty list to store ISN's in
-    #     isns = []
-    #     # Access the value in MARC 020 $a and MARC 022 $a, normalize it and store them in isbn and issn
-    #     isbn = get_subfield_value(marc_record, "020", "a")
-    #     if isbn is not None:
-    #         isns.append(isbn)
-    #     issn = get_subfield_value(marc_record, "022", "a")
-    #     if issn is not None:
-    #         isns.append(issn)
+# Start working with the data
+
+with open(args.infile) as f1, open(args.matchout, "a") as f2:
+    local_records = json.load(f1)
+
+    for record in local_records[:10]:
+        object = MatchObject(record)
+        printable_match_objects.append(vars(object))
+        
+        # TODO Try to match on title etc
+        if (not object.isbn) and (not object.issn):
+            no_isn.append(object)
+        
+        elif object.isbn and not object.issn:
+            has_isbn.append(object)
+            for isbn in object.isbn:
+                libris_response = make_get_request(isbn, "ISBN")
+                time.sleep(0.01)
+                
+                parsed_response = libris_response.json()
+                if parsed_response["totalItems"] > 0:
+                    libris_matches = get_libris_matches(parsed_response)
+                    if len(libris_matches) == 1:
+                        object.matched_xl_id = libris_matches[0]
+                        # print(f"{isbn} matches {object.matched_xl_id}")
+                else:
+                    print(f"No match for {isbn}!")
 
 
-    #     # Add a key value pair to dict record_ids
-    #     record_ids[folio_uuid] = isns
+        elif object.issn and not object.isbn:
+            has_issn.append(object)
 
+            for issn in object.issn:
+                libris_response = make_get_request(issn, "ISSN")
+                time.sleep(0.01)
+                
+                parsed_response = libris_response.json()
+                
+                if parsed_response["totalItems"] > 0:
+                    libris_matches = get_libris_matches(parsed_response)
+                    if len(libris_matches) == 1:
+                        object.matched_xl_id = libris_matches[0]
+                        # print(f"{isbn} matches {object.matched_xl_id}")
+                else:
+                    print(f"No match for {isbn}!")
 
+        else:
+        # This is an edge case case, if they have both ISSN and ISBN, let's just print it so a cataloguer can have a look
+            has_both.append(vars(object))
+        
+        print(vars(object))
+                
 
+        #Track progress and speed going through the items on the list
+        num_records += 1
+        if num_records % 2000 == 0:
+            print("{} recs/s\t{}".format(
+                round(num_records/(time.time() - start)),
+                num_records), flush=True)
+
+# Print some results to a file
+with open(args.matchout, "a") as f2: 
+    print("First some numbers:", file=f2)
+    print("Records with no ISN:", len(no_isn), file=f2)
+    print("Records with ISBN:", len(has_isbn), file=f2)
+    print("Records with ISSN:", len(has_issn), file=f2)
+    print(f"Records with ISBN and ISSN: {len(has_both)}\n", *has_both, sep="\n",file=f2)
+    print("Numer of data errors:", len(errors), file=f2)
+    print("\nErrors:\n", *errors, sep="\n", file=f2)
