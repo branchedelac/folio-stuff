@@ -33,7 +33,7 @@ def get_subfield_values(record, field_code, subfield_code):
                     if subfield_value not in all_subfield_values:
                         all_subfield_values.append(subfield_value)
             except KeyError as k1:
-                errors.append(f"Subfield object or subfield code{k1} missing for {record}")
+                errors.append(f"Subfield object or subfield code {k1} missing for:\n {record}")
                 continue
     return all_subfield_values
 
@@ -50,11 +50,14 @@ Make a GET request to the Libris XL API anbd return the response
 '''
 def make_get_request(value, field):
     url = f"https://libris.kb.se/find.json?identifiedBy.value={value}&identifiedBy.@type={field}&@type=Instance"
-    response = requests.get(url)
-    if response.status_code != 200:
-        raise Exception(f"Request failed for {value}. {response.text}\n")
-    else:
-        return response
+    try:
+        response = requests.get(url)
+        if response.status_code != 200:
+            print(f"Request failed for {value}. {response.text}\n")
+        else:
+            return response
+    except HTTPError:
+        print(f"Request failed for {value}. {response.text}\n")
 
 '''
 Get the Libris XL ID from every item in a parsed JSON response
@@ -62,33 +65,23 @@ Get the Libris XL ID from every item in a parsed JSON response
 def get_libris_matches(json_response):
     for item in parsed_response["items"]:
         xl_id = item["@id"]
-        if xl_id not in  object.matched_xl_ids:
+        if xl_id not in object.matched_xl_ids:
             object.matched_xl_ids.append(xl_id)
 
 '''
 Identify matching records and store IDs to corresponding lists
 '''
-def sort_and_document_matches(json_response, linked_ids, isn_type_matched):
-    if parsed_response["totalItems"] > 0:
-        #Add matching XL ids from the response to the object
-        get_libris_matches(parsed_response)
-        linked_ids.append(object.matched_xl_ids)
-
-        try:
-            if len(object.matched_xl_ids) == 1:
-                if linked_ids not in isn_type_matched:
-                    isn_type_matched.append(linked_ids)
-            elif len(object.matched_xl_ids) > 1:
-                if linked_ids not in too_many_matches:
-                    too_many_matches.append(linked_ids)
-        except ValueError as v1:
-            errors.append(v1)
-            
-    # If totalItems = 0, the query returned no matching Libris instances. Let's just note that this ISN has no match.
+def sort_and_document_matches(linked_ids, isn_type_matched):
+    #Add matching XL ids from the response to the object
+    if len(linked_ids[2]) == 1:
+        if linked_ids not in isn_type_matched:
+            isn_type_matched.append(linked_ids)
+    elif len(linked_ids[2]) > 1:
+        if linked_ids not in too_many_matches:
+            too_many_matches.append(linked_ids)
     else:
         if linked_ids not in no_isn_match:
             no_isn_match.append(linked_ids)
-
 
 # Define a class for a "match object", which contains FOLIO instance UUID, ISBN and ISSN (and could be extended with title, author, normalized versions of various values etc)
 # TODO Add other matchable data like title 
@@ -121,7 +114,7 @@ start = time.time()
 with open(args.infile) as f1:
     local_records = json.load(f1)
 
-    for record in local_records[:80]:
+    for record in local_records:
         object = MatchObject(record)
         match_objects.append(object)
         
@@ -140,9 +133,12 @@ with open(args.infile) as f1:
                 clean_isbn = clean_isn(isbn)
                 libris_response = make_get_request(clean_isbn, "ISBN")
                 time.sleep(0.01)
-                
                 parsed_response = libris_response.json()
-                sort_and_document_matches(parsed_response, object.linked_ids, isbn_matched)
+
+                get_libris_matches(parsed_response)
+                object.linked_ids.append(object.matched_xl_ids)
+     
+            sort_and_document_matches(object.linked_ids, isbn_matched)
 
         # Find out if there is a Libris XL record with matching ISSN
         elif object.issn and not object.isbn:
@@ -155,7 +151,11 @@ with open(args.infile) as f1:
                 time.sleep(0.01)
           
                 parsed_response = libris_response.json()
-                sort_and_document_matches(parsed_response, object.linked_ids, issn_matched)
+
+                get_libris_matches(parsed_response)
+                object.linked_ids.append(object.matched_xl_ids)
+     
+            sort_and_document_matches(object.linked_ids, issn_matched)
                 
         # Exempt from the matching procedure, add to a list and let a cataloguer have a look.
         else:
@@ -183,8 +183,8 @@ with open(args.stats, "a") as f2, open(args.noissn, "a") as f3, open(args.isnmat
     print("ISBN/ISSN matched 0 Libris records:", len(no_isn_match), file=f2)
     print("ISBN/ISSN matches >1 Libris records:", len(too_many_matches), file=f2)
 
-    print("\n Numer of errors identified:", len(errors), file=f2)
-    print("\nErrors:\n", *errors, "\nWeird data:\n", *has_both, sep="\n", file=f2)
+    print("\nNumer of errors identified:", len(errors), file=f2)
+    print("\nErrors:\n", *errors, "\nStrange record identified by both ISBN and ISSN:\n", *has_both, sep="\n", file=f2)
     print("These FOLIO instances have no ISN to match on:\n", no_isn, file=f3)
     print("ISBN matched 1 Libris record:\n", *isbn_matched, "\n\nISSN matched 1 Libris record:\n", *issn_matched, sep="\n", file=f4)
     print("ISN matched 0 Libris records:\n", *no_isn_match, "\n\nISN matched >1 Libris records:\n", *too_many_matches, sep="\n", file=f5)
