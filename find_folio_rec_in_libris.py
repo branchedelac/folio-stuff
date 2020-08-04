@@ -1,6 +1,5 @@
 # Work in progress 
-# NB Current version not tested on full dataset
-# TODO Fix bug which adds record to IS[B/S]N_matched AND no_isn_matched AND too_many_matches if the record has several ISNs which meet different matching conditions.
+# Fixed bug which added record to IS[B/S]N_matched AND no_isn_matched AND too_many_matches if the record has several ISNs which meet different matching conditions. These records now end up in the isn_match list, but with an extra XL ID (in ints own separate list). TODO Figure out what to do with these records. Check if they are a true match?
 
 import json
 import argparse
