@@ -64,7 +64,7 @@ for recall in recalls:
 
     get_available_items = make_get_request_w_query_and_limit(
         "inventory/items",
-        f"instance.id=={linked_instance} AND status.name==\"Available\"",
+        f"instance.id=={linked_instance} AND status.name==\"Available\" AND permanentLoanTypeId==\"11fbed26-571e-40fb-9e26-80605602021d\"",
         100
     )
 
