@@ -1,7 +1,5 @@
 # Authentication
-authlocal.py
-authqx.py
-authbug.py
+auth*
 
 # Test (and real) data
 local_data
