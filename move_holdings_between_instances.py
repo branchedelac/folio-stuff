@@ -1,20 +1,10 @@
-# TODO Införliva feedback från Theodor:
-# Använd Python truth istället för None DONE
-# Förfina PUT-request DONE
-# Fixa ödesdiger bugg DONE
-# Deindentera huvuddelen med något som avslutar skriptet DONE
-# Objektorientera mera
-# Använd exceptions (läs på, testa, fundera på var de kan vara till användning, implementera)
-# Lägga instansidn i tuple (de ska vara två!) istället för lista i dict DONE
-# Fixa så att moduler inte är rödprickade i VS Code DONE
-# Utforska hur man kan konstruera urlar med requests 
-  
-# TODO Införliva feedback från Siska: 
-# Vad händer om det finns dependencies till t.ex. lån, ordrar, osv (minns att vi diskuterat detta med Charlotte - borde testa). Lån verkar klara sig, däremot är det knepigt med öppna ordrar.
-
-# TODO Var lagra tenant-specifika värden (t.ex. okapi-url, token)? 
-# Fundera på Utforska t.ex .env och configparser
-
+'''
+Given a two column list of FOLIO isntance UUIDs, for each instance pair (row), this script fetches the holdings from one of the instances ad reassociates it with the other instance. Use to bulk move holdings between instances. Written before the Inventory Move API was developed.
+'''
+# TODO Explore using the Inventory Move API, /inventory/holdings/move
+# TODO Explore object-orientation
+# TODO Better exception handling
+# TODO Make sure dependencies are handled well - explore issues with open orders
 
 import json
 import argparse
@@ -36,7 +26,6 @@ footer_bg_color='#FFFFFF',
 image_dir='./local_data/',
 )
 
-# I'm not sure why I made this a function rather than part of the 'main' script
 def user_input():
     parser = GooeyParser(description="Please fill in all the fields below.")
     parser.add_argument("list_of_records", 

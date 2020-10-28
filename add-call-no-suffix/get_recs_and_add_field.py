@@ -4,8 +4,9 @@ import requests
 import json
 import csv
 
-#API Request details 
-#TODO: figure out how to not have authentication details in code
+# TODO: figure out how to not have authentication details in code
+# Utilize Inventory cross record search, e.g. holdings-storage/holdigns?query=item.barcode
+
 headers = {
 	'x-okapi-tenant': 'tenant',
 	'x-okapi-token': 'token'
