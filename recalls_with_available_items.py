@@ -4,12 +4,9 @@
 
 #TODO Refine which available items to return -- are e.g. items with loantype Reference
 
-import json
 import time
 from datetime import datetime
-import re
 import requests
-from requests.exceptions import HTTPError
 
 # Import some local variables from a separate .py file
 import authlocal as auth
