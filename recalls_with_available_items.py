@@ -2,8 +2,6 @@
 
 # This script is part of a (pretty cumbersome) workaround for this. It identifies open recall requests where the associated instance has at last one available copy. Once these requests have been identified, a librarian will go into FOLIO and manually move the request to an available item.
 
-#TODO Refine which available items to return -- are e.g. items with loantype Reference
-
 import time
 from datetime import datetime
 import requests
@@ -47,7 +45,7 @@ no_available_items = 0
 
 recalls_to_move = []
 
-# Get all open recalls
+# Fetch all open recall requests
 
 get_recalls = make_get_request_w_query_and_limit(
     "circulation/requests", 
@@ -56,20 +54,27 @@ get_recalls = make_get_request_w_query_and_limit(
 
 recalls = get_recalls.json()["requests"]
 
+# Loop throgh fetched recall requestes
 for recall in recalls:
     linked_instance = recall["item"]["instanceId"]
 
+    # Fetch items associated with the instance that are available and loanable
     get_available_items = make_get_request_w_query_and_limit(
         "inventory/items",
         f"instance.id=={linked_instance} AND status.name==\"Available\" AND permanentLoanTypeId==\"11fbed26-571e-40fb-9e26-80605602021d\"",
         100
     )
 
+    # If there are any items available and loanable, add the recall request to list recalls_to_move
     items = get_available_items.json()["items"]
+
     if items:
         recall_id = recall["id"]
         recall_url = auth.uiUrl + f"/requests/view/{recall_id}"
-        recalls_to_move.append(recall_url)
+        requester = recall["requester"]["lastName"]
+
+        recall_info = f"{recall_url} ({requester})"
+        recalls_to_move.append(recall_info)
         has_available_items +=1
         
     else:
@@ -81,7 +86,11 @@ for recall in recalls:
         print("{} recs/s\t{}".format(
             round(num_records/(time.time() - start)),
             num_records), flush=True)
+    
+    # Give FOLIO some rest before moving on to the next request
+    time.sleep(0.01)
 
+# Wrapping up... print summary to console
 print(
     f"Number of recalls with available items: {has_available_items}"
 )
@@ -89,6 +98,7 @@ print(
     f"Number of recalls with no available items: {no_available_items}"
 )
 
+# Print results and list of recalls to move to a file in directory results. If a file by the name already exists, it will be overwritten. 
 with open("results/recalls_to_move.txt", "w") as f:
     print(f"This search was intitalized on: {start_date_time}", file=f)
     print(f"Number of recalls with available items: {has_available_items}", file=f)
