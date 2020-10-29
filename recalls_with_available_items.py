@@ -1,6 +1,7 @@
-# One of the most serious consequences of FOLIO's current "item level request" functionality -- always associating recall requests with a specific copy directly upon creation, rather saving it on the "title (instance) level" and associating it with the first copy checked in -- is that a patron may be left queueing for one specific copy even after another copy has been checked in.
-
-# This script is part of a (pretty cumbersome) workaround for this. It identifies open recall requests where the associated instance has at last one available copy. Once these requests have been identified, a librarian will go into FOLIO and manually move the request to an available item.
+'''
+One shortcoming of current requesting functionality in FOLIO, where recall requests are associated with a specific copy directly upon creation, is that a patron may be left queueing for one specific copy even after another copy has become available.
+This script identifies open recall requests where the associated instance has at last one available copy. Once these requests have been identified, a can will go into FOLIO and manually move the request to an available item.
+'''
 
 import time
 from datetime import datetime
