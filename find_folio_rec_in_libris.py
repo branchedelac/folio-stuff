@@ -7,6 +7,8 @@ import time
 import re
 import requests
 from requests.exceptions import HTTPError
+from pymarc import MARCReader
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument("infile", help="A file to analyze", type=str)
@@ -22,20 +24,16 @@ Returns a list of all the values in a certain field's subfield (eg all 020 $a)
 '''
 def get_subfield_values(record, field_code, subfield_code):
     all_subfield_values = []
-    marc_record = record["fields"]
-    for field in marc_record:
-        if field_code in field:
-            try:
-                subfields = field[field_code]["subfields"]
-                for subfield in subfields: 
-                    subfield_value = subfield[subfield_code]
-                    if subfield_value not in all_subfield_values:
-                        all_subfield_values.append(subfield_value)
-            except KeyError as k1:
-                errors.append(f"Subfield object or subfield code {k1} missing for:\n {record}")
-                continue
+    try:
+        if record[field_code]:
+            if record[field_code][subfield_code]:
+                if record[field_code][subfield_code] not in all_subfield_values:
+                    all_subfield_values.append(record[field_code][subfield_code])
+            else:
+                raise ValueError(f"Subfield missing for:\n {record}")
+    except ValueError as error:
+        errors.append(error)
     return all_subfield_values
-
 
 '''
 Returns an ISN with with non-numeric characters other than "-" and "x" stripped off
@@ -110,10 +108,10 @@ num_records = 0
 start = time.time()
 
 # Open a file containing FOLIO MARC records and start working with the data!
-with open(args.infile) as f1:
-    local_records = json.load(f1)
+with open(args.infile, "rb") as f1:
+    reader = MARCReader(f1)
 
-    for record in local_records:
+    for record in reader:
         object = MatchObject(record)
         match_objects.append(object)
         
