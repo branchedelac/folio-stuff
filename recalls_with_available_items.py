@@ -1,3 +1,17 @@
+# Listan Recalls_to_move.txt som tas ut med scriptet recalls_with_available_items.py
+
+# Det vore superbra att få med lite fler element för att lättare arbeta med listan och flytta den person som stått längst i kö till det/de tillgängliga exemplaren.
+
+# Maries förslag:
+# InstansID Titel Request date Requester RequestID
+
+# Vi behöver inte böka med sortering, men OM det skulle vara jätteenkelt så kanske:
+# 1. Instans-ID
+# 2. Request date
+# eller bara Request date
+
+
+
 '''
 One shortcoming of current requesting functionality in FOLIO, where recall requests are associated with a specific copy directly upon creation, is that a patron may be left queueing for one specific copy even after another copy has become available.
 This script identifies open recall requests where the associated instance has at last one available copy. Once these requests have been identified, a can will go into FOLIO and manually move the request to an available item.
@@ -57,7 +71,9 @@ recalls = get_recalls.json()["requests"]
 
 # Loop throgh fetched recall requestes
 for recall in recalls:
+    request_date = recall["requestDate"]
     linked_instance = recall["item"]["instanceId"]
+    title = recall["item"]["title"]
 
     # Fetch items associated with the instance that are available and loanable
     get_available_items = make_get_request_w_query_and_limit(
@@ -74,7 +90,8 @@ for recall in recalls:
         recall_url = auth.uiUrl + f"/requests/view/{recall_id}"
         requester = recall["requester"]["lastName"]
 
-        recall_info = f"{recall_url} ({requester})"
+        recall_info = f"{linked_instance}    {recall_url}    ({request_date} {requester})    {title}"
+
         recalls_to_move.append(recall_info)
         has_available_items +=1
         
@@ -100,9 +117,13 @@ print(
 )
 
 # Print results and list of recalls to move to a file in directory results. If a file by the name already exists, it will be overwritten. 
+
+sorted_recalls_to_move = sorted(recalls_to_move)
+
+
 with open("results/recalls_to_move.txt", "w") as f:
     print(f"This search was intitalized on: {start_date_time}", file=f)
     print(f"Number of recalls with available items: {has_available_items}", file=f)
     print(f"Number of recalls with no available items: {no_available_items}", file=f)   
     print(f"\nRecalls that can be moved to available items:", file=f)
-    print(*recalls_to_move, sep = "\n", file=f)
+    print(*sorted_recalls_to_move, sep = "\n", file=f)
